@@ -38,9 +38,12 @@ function audit_mlc_ai_wheel() {
 }
 
 TVM_PYTHON_DIR="/workspace/tvm/python"
-PYTHON_VERSIONS_CPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
-PYTHON_VERSIONS_GPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
-GPU_OPTIONS=("none" "cuda-11.7" "cuda-11.8" "cuda-12.1" "cuda-12.2" "rocm-5.6" "rocm-5.7")
+PYTHON_VERSIONS_CPU=("3.10")
+PYTHON_VERSIONS_GPU=("3.10")
+GPU_OPTIONS=("none" "cuda-12.1")
+#PYTHON_VERSIONS_CPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
+#PYTHON_VERSIONS_GPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
+#GPU_OPTIONS=("none" "cuda-11.7" "cuda-11.8" "cuda-12.1" "cuda-12.2" "rocm-5.6" "rocm-5.7")
 GPU="none"
 
 while [[ $# -gt 0 ]]; do
@@ -85,13 +88,15 @@ if [[ ${GPU} == rocm* ]]; then
 	AUDITWHEEL_OPTS="--exclude libamdhip64 --exclude libhsa-runtime64 --exclude librocm_smi64 --exclude librccl ${AUDITWHEEL_OPTS}"
 elif [[ ${GPU} == cuda* ]]; then
 	AUDITWHEEL_OPTS="--exclude libcuda --exclude libcudart --exclude libnvrtc ${AUDITWHEEL_OPTS}"
+	AUDITWHEEL_OPTS="--exclude libfpA_intB_gemmn ${AUDITWHEEL_OPTS}"
 fi
 
 # config the cmake
 cd /workspace/tvm
+rm -f config.cmake
 echo set\(HIDE_PRIVATE_SYMBOLS ON\) >>config.cmake
 echo set\(USE_RPC ON\) >>config.cmake
-echo set\(USE_VULKAN ON\) >>config.cmake
+#echo set\(USE_VULKAN ON\) >>config.cmake
 
 if [[ ${GPU} == rocm* ]]; then
 	echo set\(USE_LLVM \"/opt/rocm/llvm/bin/llvm-config --ignore-libllvm --link-static\"\) >>config.cmake
@@ -101,11 +106,15 @@ elif [[ ${GPU} == cuda* ]]; then
 	echo set\(USE_LLVM \"llvm-config --ignore-libllvm --link-static\"\) >>config.cmake
 	echo set\(USE_CUDA ON\) >>config.cmake
 	echo set\(USE_CUTLASS ON\) >>config.cmake
+	echo set\(USE_CUBLAS ON\) >>config.cmake
 	echo set\(USE_NCCL ON\) >>config.cmake
+	echo set\(USE_THRUST ON\) >>config.cmake
+	echo set\(USE_VLLM ON\) >>config.cmake
 fi
 
 # compile the tvm
 git config --global --add safe.directory /workspace/tvm
+#rm -rf build
 mkdir -p build
 cd build
 cmake ..

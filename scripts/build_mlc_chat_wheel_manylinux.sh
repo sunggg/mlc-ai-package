@@ -33,14 +33,18 @@ function audit_mlc_chat_wheel() {
 	python_version_str=$1
 
 	cd "${MLC_LLM_PYTHON_DIR}" &&
-		mkdir -p repaired_wheel &&
+		mkdir -p repaired_wheels &&
 		auditwheel repair ${AUDITWHEEL_OPTS} dist/*cp${python_version_str}*.whl
 }
 
-MLC_LLM_PYTHON_DIR="/workspace/mlc-llm/python"
-PYTHON_VERSIONS_CPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
-PYTHON_VERSIONS_GPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
-GPU_OPTIONS=("none" "cuda-11.7" "cuda-11.8" "cuda-12.1" "cuda-12.2" "rocm-5.6" "rocm-5.7")
+MLC_LLM_PYTHON_DIR="/workspace/mlc-llm/serve"
+#"/workspace/mlc-llm/python"
+PYTHON_VERSIONS_CPU=("3.10")
+PYTHON_VERSIONS_GPU=("3.10")
+GPU_OPTIONS=("none" "cuda-12.1")
+#PYTHON_VERSIONS_CPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
+#PYTHON_VERSIONS_GPU=("3.7" "3.8" "3.9" "3.10" "3.11" "3.12")
+#GPU_OPTIONS=("none" "cuda-11.7" "cuda-11.8" "cuda-12.1" "cuda-12.2" "rocm-5.6" "rocm-5.7")
 GPU="none"
 
 while [[ $# -gt 0 ]]; do
@@ -89,18 +93,29 @@ fi
 
 # config the cmake
 cd /workspace/mlc-llm
-echo set\(USE_VULKAN ON\) >>config.cmake
+rm -f config.cmake
+echo set\(TVM_HOME /workspace/tvm\) >>config.cmake
+echo set\(HIDE_PRIVATE_SYMBOLS ON\) >>config.cmake
+echo set\(USE_RPC ON\) >>config.cmake
+#echo set\(USE_VULKAN ON\) >>config.cmake
 
 if [[ ${GPU} == rocm* ]]; then
+	#echo set\(USE_LLVM \"/opt/rocm/llvm/bin/llvm-config --ignore-libllvm --link-static\"\) >>config.cmake
 	echo set\(USE_ROCM ON\) >>config.cmake
 	echo set\(USE_RCCL /opt/rocm/rccl/ \) >>config.cmake
 elif [[ ${GPU} == cuda* ]]; then
+	#echo set\(USE_LLVM \"llvm-config --ignore-libllvm --link-static\"\) >>config.cmake
 	echo set\(USE_CUDA ON\) >>config.cmake
 	echo set\(USE_CUTLASS ON\) >>config.cmake
+	echo set\(USE_CUBLAS ON\) >>config.cmake
 	echo set\(USE_NCCL ON\) >>config.cmake
+	echo set\(USE_THRUST ON\) >>config.cmake
+	echo set\(USE_VLLM ON\) >>config.cmake
 fi
 
+git config --global --add safe.directory /workspace/mlc-llm
 # compile the mlc-llm
+#rm -rf build
 mkdir -p build
 cd build
 cmake ..
@@ -112,7 +127,7 @@ UNICODE_WIDTH=32 # Dummy value, irrelevant for Python 3
 # so check the existing python versions before generating packages
 for python_version in ${PYTHON_VERSIONS[*]}; do
 	echo "> Looking for Python ${python_version}."
-
+	#git config --global --add safe.directory /workspace/mlc-llm
 	# Remove the . in version string, e.g. "3.8" turns into "38"
 	python_version_str="$(echo "${python_version}" | sed -r 's/\.//g')"
 	cpython_dir="/opt/conda/envs/py${python_version_str}/"
